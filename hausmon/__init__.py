@@ -12,7 +12,7 @@ DOMAIN = "hausmon"
 # The logger for the component.
 LOGGER = logging.getLogger(DOMAIN)
 # The URL for the API. Can be overridden in the environment for testing.
-HAUSMON_URL = os.getenv('HAUSMON_URL', 'http://mon.hausnet.io/api')
+HAUSMON_URL = os.getenv('HAUSMON_URL', 'https://mon.hausnet.io/api')
 
 ##
 # Config looks as follows:
@@ -36,6 +36,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 def setup(hass, config):
     """Set up the HausMon component."""
+    LOGGER.debug("Setting up HausMon component...")
     if DOMAIN not in config:
         return True
 

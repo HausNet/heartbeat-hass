@@ -1,13 +1,16 @@
 import asyncio
 import os
 from typing import Optional, Dict
+import logging
 
 from homeassistant.components.notify import (BaseNotificationService)
 from homeassistant.const import (CONF_API_KEY, CONF_DEVICE)
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util.dt import now
 
-from . import DOMAIN, LOGGER, HAUSMON_URL
+from . import DOMAIN, HAUSMON_URL
+
+LOGGER = logging.getLogger(__name__)
 
 # Extended attributes for messaging
 # The device name / identifier
@@ -43,6 +46,7 @@ class HausMonNotificationService(BaseNotificationService):
         the given API key. Kicks off the HASS heartbeat timer.
         """
         from hausmon_client.client import HausMonClient
+        LOGGER.debug("Setting up HausMon notification service...")
         self._hass = hass
         domain_data: Dict = hass.data[DOMAIN]
         self._api_url: str = HAUSMON_URL
