@@ -110,6 +110,7 @@ class HausMonNotificationService(BaseNotificationService):
         """
         from hausmon_client.client import HausMonClient
         # noinspection PyBroadException
+        LOGGER.debug("Initializing HausMon client...")
         try:
             self._client = self._client = \
                 HausMonClient(self._api_url, self._api_key)
