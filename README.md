@@ -15,13 +15,15 @@ module integrates the HausMon API Client into the Home Assistant
    git clone git@github.com:HausNet/hausmon-hass.git
    ```
 1. Create an account at the [HausNet website](http://hausnet.io).
+1. Create a device at the website with a descriptive name, 
+   e.g. ```my_home_assistant``` 
 1. From the website, get your API key.
 1. Open your HASS config file, and enter the following YAML:
-   ```yaml
+   ```yamlx 
    hausmon:
        api_key: "[My API key from hausnet.io]"
-       device: my_cool_device
+       device: my_home_assistant
    ```
 1. Restart and you're set! The client will now send a timer reset
    request to the service every 15 minutes, and the service will 
-   report to you when it doe 
+   report to you when it does. 
