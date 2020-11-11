@@ -1,8 +1,8 @@
 # hausmon-hass
 
-HausMon Client integration into Home Assistant. The HausMon service
-is a simple Dead Man's Switch to send alerts when a home automation
-network does not regularly reset it. This way you'll know when 
+HausMon home automation network monitoring integration into Home Assistant. 
+The HausMon service is a simple Dead Man's Switch to send alerts when a home
+automation network does not regularly reset it. This way you'll know when 
 something went wrong even when the network cannot be reached. This 
 module integrates the HausMon API Client into the Home Assistant 
 (HASS) environment.
@@ -24,4 +24,4 @@ module integrates the HausMon API Client into the Home Assistant
    ```
 1. Restart and you're set! The client will now send a timer reset
    request to the service every 15 minutes, and the service will 
-   report to you when it doe 
+   report to you when it doesn't. 
