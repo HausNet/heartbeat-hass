@@ -64,21 +64,23 @@ class HausMonNotificationService(BaseNotificationService):
             self._api_url, self._device_name
         )
 
-    async def beat_heart(self):
-        """Called by timer (or at object construction time, once) to beat heart
-        at the service. Sets up the call for the next beat at the end.
+    # noinspection PyUnusedLocal
+    async def beat_heart(self, now=None) -> None:
+        """ Called by timer (or at object construction time, once) to beat the
+            heart at the service. Sets up the call for the next beat at the end.
         """
         LOGGER.debug("Heartbeat timer triggered.")
         # noinspection PyBroadException
         # pylint: disable=broad-except
         try:
-            self._send_heartbeat()
+            await self._hass.async_add_executor_job(self._send_heartbeat)
         except Exception:
             LOGGER.exception("Exception while triggering heartbeat.")
         self._set_heartbeat_timer()
 
-    def _set_heartbeat_timer(self):
+    def _set_heartbeat_timer(self) -> None:
         """Set up the next call to the heartbeat function."""
+        # noinspection PyTypeChecker
         async_call_later(self._hass, HEARTBEAT_PERIOD_SECONDS, self.beat_heart)
         LOGGER.debug(
             "Heartbeat scheduled in %d seconds",
