@@ -3,6 +3,7 @@
   "name": "HausMon Monitor",
   "config_flow": false,
   "documentation": "https://hausnet.io",
+  "version": "0.0.1",
   "issue_tracker": "https://github.com/HausNet/hausmon-hass/issues",
   "requirements": [
     "hausmon-client==0.0.4"
