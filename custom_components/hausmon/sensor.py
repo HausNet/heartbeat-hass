@@ -7,22 +7,21 @@ import datetime
 from functools import lru_cache
 import logging
 import os
-from typing import Any, cast
+from typing import Any, cast, Dict, Optional, Tuple
 
-import psutil
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
+from homeassistant.components.binary_sensor import (
+    PLATFORM_SCHEMA,
+    BinarySensorEntity
+)
 from homeassistant.const import (
-    CONF_NAME,
-    CONF_SCAN_INTERVAL,
-    CONF_TYPE,
     EVENT_HOMEASSISTANT_STOP,
     STATE_OFF,
     STATE_ON,
-    CONF_CONDITIONS,
-    CONF_ENTITY_ID,
     CONF_ICON,
+    CONF_SENSORS,
+    CONF_ID, CONF_NAME,
 )
 from homeassistant.core import HomeAssistant, callback
 import homeassistant.helpers.config_validation as cv
@@ -30,39 +29,35 @@ from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
     async_dispatcher_send,
 )
-from homeassistant.helpers.entity_component import DEFAULT_SCAN_INTERVAL
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.util import slugify
 import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_COMPARISON = "comparison"
-CONF_VALUE = "value"
+CONF_RELATED_ENTITY_ID = "related_entity_id"
+CONF_PULSE_MINUTES = "pulse_minutes"
 DEFAULT_ICON = "mdi.alarm"
+SCAN_INTERVAL_MINUTES = 1
 
 SIGNAL_HAUSMON_UPDATE = "hausmon_update"
 
+# TODO: Make id & name unique
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
-        vol.Optional(CONF_CONDITIONS, default={CONF_CONDITIONS: "alive"}): 
+        vol.Optional(CONF_SENSORS, default={CONF_SENSORS: "pulse_missing"}):
             vol.All(
                 cv.ensure_list,
                 [
                     vol.Schema(
                         {
-                            vol.Required(CONF_NAME):
-                                vol.All(str, vol.Length(min=1)),
-                            vol.Required(CONF_ENTITY_ID):
-                                vol.All(str, vol.Length(min=1)),
-                            vol.Required(CONF_COMPARISON):
-                                vol.All(str, vol.Length(min=1)),
-                            vol.Required(CONF_VALUE):
-                                vol.Number(),
+                            vol.Required(CONF_ID): cv.string,
+                            vol.Required(CONF_NAME): cv.string,
+                            vol.Required(CONF_RELATED_ENTITY_ID): cv.entity_id,
+                            vol.Required(CONF_PULSE_MINUTES): cv.positive_int,
                             vol.Optional(CONF_ICON, default=DEFAULT_ICON):
-                                vol.All(str, vol.Length(min=1))
+                                cv.icon
                         }
                     )
                 ],
@@ -73,14 +68,17 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 @dataclass
-class SensorData:
-    """Data for a sensor."""
-
-    argument: Any
-    state: str | None
-    value: Any | None
-    update_time: datetime.datetime | None
-    last_exception: BaseException | None
+class PulseMissingData:
+    """Data for a missing pulse sensor."""
+    # The current state - true => pulse missing, false => pulse present
+    pulse_missing: bool
+    # Time by which, if no pulse has been received, the pulse will be
+    # considered missing.
+    trigger_time: Optional[datetime.datetime]
+    # Time the state was changed last.
+    update_time: Optional[datetime.datetime]
+    # Last exception, if any.
+    last_exception: Optional[BaseException]
 
 
 async def async_setup_platform(
@@ -91,85 +89,72 @@ async def async_setup_platform(
 ) -> None:
     """Set up the monitor condition sensors."""
     entities = []
-    sensor_registry: dict[tuple[str, str], SensorData] = {}
+    sensor_registry: Dict[str, PulseMissingData] = {}
 
-    for condition in config[CONF_CONDITIONS]:
-        type_ = condition[CONF_TYPE]
-        # Initialize the sensor argument if none was provided.
-        # For disk monitoring default to "/" (root) to prevent runtime errors, if argument was not specified.
-        if CONF_ARG not in condition:
-            argument = ""
-            if condition[CONF_TYPE].startswith("disk_"):
-                argument = "/"
-        else:
-            argument = condition[CONF_ARG]
-
-        # Verify if we can retrieve CPU / processor temperatures.
-        # If not, do not create the entity and add a warning to the log
-        if (
-            type_ == "processor_temperature"
-            and await hass.async_add_executor_job(_read_cpu_temperature) is None
-        ):
-            _LOGGER.warning("Cannot read CPU / processor temperature information")
-            continue
-
-        sensor_registry[(type_, argument)] = SensorData(
-            argument, None, None, None, None
+    for sensor_config in config[CONF_SENSORS]:
+        sensor_registry[sensor_config[CONF_ID]] = PulseMissingData(
+            None, None, None, None
         )
-        entities.append(SystemMonitorSensor(sensor_registry, type_, argument))
+        entities.append(PulseMissingSensor(
+            sensor_config[CONF_ID],
+            sensor_config[CONF_NAME],
+            sensor_config[CONF_PULSE_MINUTES],
+            sensor_registry[CONF_ID]
+        ))
 
-    scan_interval = config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    await async_setup_sensor_registry_updates(hass, sensor_registry, scan_interval)
+    await async_manage_sensor_registry_updates(
+        hass,
+        sensor_registry,
+        SCAN_INTERVAL_MINUTES
+    )
 
     async_add_entities(entities)
 
 
-async def async_setup_sensor_registry_updates(
+async def async_manage_sensor_registry_updates(
     hass: HomeAssistant,
-    sensor_registry: dict[tuple[str, str], SensorData],
-    scan_interval: datetime.timedelta,
+    sensor_registry: Dict[str, PulseMissingData],
+    scan_interval_minutes: int,
 ) -> None:
     """Update the registry and create polling."""
-
     _update_lock = asyncio.Lock()
 
     def _update_sensors() -> None:
         """Update sensors and store the result in the registry."""
-        for (type_, argument), data in sensor_registry.items():
+        for sensor_id, data in sensor_registry.items():
             try:
-                state, value, update_time = _update(type_, data)
+                state, value, update_time = _update(sensor_id, data)
             except Exception as ex:  # pylint: disable=broad-except
-                _LOGGER.exception("Error updating sensor: %s (%s)", type_, argument)
+                _LOGGER.exception(
+                    "Error updating sensor: %s (%s)",
+                    sensor_id
+                )
                 data.last_exception = ex
             else:
                 data.state = state
                 data.value = value
                 data.update_time = update_time
                 data.last_exception = None
-
-        # Only fetch these once per iteration as we use the same
-        # data source multiple times in _update
-        _disk_usage.cache_clear()
-        _swap_memory.cache_clear()
-        _virtual_memory.cache_clear()
-        _net_io_counters.cache_clear()
-        _net_if_addrs.cache_clear()
-        _getloadavg.cache_clear()
+                data.trigger_time = datetime.datetime.now()
 
     async def _async_update_data(*_: Any) -> None:
         """Update all sensors in one executor jump."""
         if _update_lock.locked():
             _LOGGER.warning(
-                "Updating systemmonitor took longer than the scheduled update interval %s",
-                scan_interval,
+                "Updating hausmon monitor sensors took longer than the "
+                "scheduled update interval %s, skipping.",
+                scan_interval_minutes,
             )
             return
-
         async with _update_lock:
             await hass.async_add_executor_job(_update_sensors)
             async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
 
-    polling_remover = async_track_time_interval(hass, _async_update_data, scan_interval)
+    polling_remover = async_track_time_interval(
+        hass,
+        _async_update_data,
+        datetime.timedelta(minutes=scan_interval_minutes)
+    )
 
     @callback
     def _async_stop_polling(*_: Any) -> None:
@@ -180,21 +165,24 @@ async def async_setup_sensor_registry_updates(
     await _async_update_data()
 
 
-class SystemMonitorSensor(SensorEntity):
-    """Implementation of a system monitor sensor."""
-
+class PulseMissingSensor(BinarySensorEntity):
+    """A sensor that turns on when activity was not sensed within a given
+    time frame.
+    """
     def __init__(
         self,
-        sensor_registry: dict[tuple[str, str], SensorData],
-        sensor_type: str,
-        argument: str = "",
+        id_: str,
+        name: str,
+        pulse_minutes: int,
+        sensor_data: PulseMissingData
     ) -> None:
-        """Initialize the sensor."""
-        self._type: str = sensor_type
-        self._name: str = f"{self.sensor_type[SENSOR_TYPE_NAME]} {argument}".rstrip()
-        self._unique_id: str = slugify(f"{sensor_type}_{argument}")
-        self._sensor_registry = sensor_registry
-        self._argument: str = argument
+        """Initialize the sensor, with an id, name, and pulse period. Also,
+        give it access to the sensor data that is collected out of band.
+        """
+        self._name: str = name
+        self._unique_id: str = id_
+        self._pulse_minutes: int = pulse_minutes
+        self._sensor_data = sensor_data
 
     @property
     def name(self) -> str:
@@ -242,7 +230,7 @@ class SystemMonitorSensor(SensorEntity):
         return CONDITION_TYPES[self._type]  # type: ignore
 
     @property
-    def data(self) -> SensorData:
+    def data(self) -> PulseMissingData:
         """Return registry entry for the data."""
         return self._sensor_registry[(self._type, self._argument)]
 
@@ -257,8 +245,8 @@ class SystemMonitorSensor(SensorEntity):
 
 
 def _update(  # noqa: C901
-    type_: str, data: SensorData
-) -> tuple[str | None, str | None, datetime.datetime | None]:
+    entity_id: str, data: PulseMissingData
+) -> Tuple[Optional[str], Optional[str], Optional[datetime.datetime]]:
     """Get the latest system information."""
     state = None
     value = None
