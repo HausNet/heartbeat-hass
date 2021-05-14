@@ -6,8 +6,7 @@ import os
 from typing import Dict, Optional
 
 from homeassistant.components.notify import BaseNotificationService
-from homeassistant.const import CONF_API_KEY, CONF_DEVICE, \
-    EVENT_HOMEASSISTANT_START, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 from homeassistant.helpers.event import async_call_later
 
 from hausmon_client.client import HausMonClient
@@ -51,8 +50,7 @@ class HausMonNotificationService(BaseNotificationService):
         """Initialize the service to connect to the given API url, using
         the given API key. Kicks off the HASS heartbeat timer.
         """
-        LOGGER.debug("Creating HausMon notification entity...")
-        self._entities = []
+        LOGGER.debug("Setting up HausMon notification service...")
         self._hass = hass
         domain_data: Dict = hass.data[DOMAIN]
         self._api_url: str = HAUSMON_URL
@@ -65,24 +63,6 @@ class HausMonNotificationService(BaseNotificationService):
             "Created the HausMon notification service: url=%s; device=%s",
             self._api_url, self._device_name
         )
-
-    async def async_added_to_hass(self):
-        """Subscribe to HASS started signal."""
-        self._hass.bus.async_listen(
-            EVENT_HOMEASSISTANT_STARTED,
-            self.catalog_entities
-        )
-
-    async def catalog_entities(self):
-        """Read the available entities from the registry. Called from the event
-        system after everything has been started.
-        """
-        self._entities = []
-        LOGGER.debug(
-            "Created the HausMon notification service: url=%s; device=%s",
-            self._api_url, self._device_name
-        )
-
 
     # noinspection PyUnusedLocal
     async def beat_heart(self, now=None) -> None:
@@ -112,7 +92,7 @@ class HausMonNotificationService(BaseNotificationService):
             message: str = "",
             **kwargs
     ) -> None:
-        """ Send a notification via Hausmon, for the device specified. If the
+        """Send a notification via Hausmon, for the device specified. If the
         heartbeat parameter is "True", also sends a request to reset the
         heartbeat for the device.
 
