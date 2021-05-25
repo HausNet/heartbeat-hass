@@ -6,8 +6,7 @@ import os
 from typing import Dict, Optional
 
 from homeassistant.components.notify import BaseNotificationService
-from homeassistant.const import CONF_API_KEY, CONF_DEVICE, \
-    EVENT_HOMEASSISTANT_START, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 from homeassistant.helpers.event import async_call_later
 
 from hausmon_client.client import HausMonClient
@@ -66,36 +65,12 @@ class HausMonNotificationService(BaseNotificationService):
             self._api_url, self._device_name
         )
 
-    async def async_added_to_hass(self):
-        """Subscribe to HASS started signal."""
-        self._hass.bus.async_listen(
-            EVENT_HOMEASSISTANT_STARTED,
-            self.catalog_entities
-        )
-
-    async def catalog_entities(self):
-        """Read the available entities from the registry. Called from the event
-        system after everything has been started.
-        """
-        self._entities = []
-        LOGGER.debug(
-            "Created the HausMon notification service: url=%s; device=%s",
-            self._api_url, self._device_name
-        )
-
-
-    # noinspection PyUnusedLocal
-    async def beat_heart(self, now=None) -> None:
+    async def beat_heart(self, *args) -> None:
         """ Called by timer (or at object construction time, once) to beat the
             heart at the service. Sets up the call for the next beat at the end.
         """
         LOGGER.debug("Heartbeat timer triggered.")
-        # noinspection PyBroadException
-        # pylint: disable=broad-except
-        try:
-            await self._hass.async_add_executor_job(self._send_heartbeat)
-        except Exception:
-            LOGGER.exception("Exception while triggering heartbeat.")
+        await self._hass.async_add_executor_job(self._send_heartbeat)
         self._set_heartbeat_timer()
 
     def _set_heartbeat_timer(self) -> None:
