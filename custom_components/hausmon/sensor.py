@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, List
 
 import voluptuous as vol
 
+from components import persistent_notification
 from homeassistant.components.binary_sensor import (
     PLATFORM_SCHEMA,
     BinarySensorEntity
@@ -17,17 +18,15 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.const import (
     CONF_ICON,
     CONF_SENSORS,
-    CONF_ID, CONF_NAME, EVENT_STATE_CHANGED,
+    CONF_ID, CONF_NAME, EVENT_STATE_CHANGED, EVENT_HOMEASSISTANT_STARTED,
 )
 from homeassistant.core import HomeAssistant, Event
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.dispatcher import (
-    async_dispatcher_connect,
-    async_dispatcher_send,
-)
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.typing import ConfigType
+import homeassistant.util.dt as dt
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,13 +66,13 @@ class PulseUpdateType(Enum):
 
 
 @dataclass
-class PulseMissingData:
+class PulseState:
     """Data for a missing pulse sensor."""
     # The current state - true => pulse missing, false => pulse present
     pulse_missing: bool
     # Time by which, if no pulse has been received, the pulse will be
     # considered missing.
-    trigger_time: Optional[datetime.datetime]
+    receipt_deadline: Optional[datetime.datetime]
     # Minutes between expected pulses.
     pulse_minutes: int
     # Related entity that is being monitored.
@@ -82,6 +81,13 @@ class PulseMissingData:
     update_time: Optional[datetime.datetime]
     # Last exception, if any.
     last_exception: Optional[BaseException]
+
+    def set_next_deadline(self):
+        """Set the next deadline by adding the number of minutes a pulse is
+        expected in, to the current date/time.
+        """
+        self.receipt_deadline = datetime.datetime.now() + \
+            datetime.timedelta(minutes=self.pulse_minutes)
 
 
 # noinspection PyUnusedLocal
@@ -94,107 +100,170 @@ async def async_setup_platform(
 ) -> None:
     """Set up the monitor condition sensors."""
     entities: List[BinarySensorEntity] = []
-    sensor_registry: Dict[str, PulseMissingData] = {}
+    sensor_registry: Dict[str, PulseState] = {}
 
     for sensor_config in config[CONF_SENSORS]:
         pulse_minutes = sensor_config[CONF_PULSE_MINUTES]
-        trigger_time = datetime.datetime.now() + \
-            datetime.timedelta(minutes=pulse_minutes)
         sensor_id = sensor_config[CONF_ID]
         related_entity_id = sensor_config[CONF_RELATED_ENTITY_ID]
-        sensor_registry[sensor_id] = PulseMissingData(
-            False,
-            trigger_time,
-            pulse_minutes,
-            related_entity_id,
-            None,
-            None
+        sensor_registry[sensor_id] = PulseState(
+            pulse_missing=False,
+            receipt_deadline=None,
+            pulse_minutes=pulse_minutes,
+            related_entity_id=related_entity_id,
+            update_time=None,
+            last_exception=None
         )
+        _LOGGER.debug("Added sensor to registry: %s", sensor_id)
         entities.append(PulseMissingSensor(
             sensor_config[CONF_ID],
             sensor_config[CONF_NAME],
             sensor_config[CONF_ICON],
             sensor_registry[sensor_id]
         ))
+        _LOGGER.debug("Created entity for sensor: %s", sensor_id)
+    async_add_entities(entities)
     await async_manage_sensor_registry_updates(
         hass,
         sensor_registry
     )
-    async_add_entities(entities)
 
 
 async def async_manage_sensor_registry_updates(
     hass: HomeAssistant,
-    sensor_registry: Dict[str, PulseMissingData]
+    sensor_registry: Dict[str, PulseState]
 ) -> None:
     """Update the registry and create polling."""
     _pulse_data_lock = asyncio.Lock()
+    _timeout_scheduled = False
 
-    def _update_pulse(
-            pulse_data: PulseMissingData,
-            pulse_update: PulseUpdateType
-    ) -> bool:
-        """Based on whether a pulse was received, or timed out, updates the
-        pulse data. Returns true if the state was changed.
+    def _handle_missing_pulse(pulse_state: PulseState) -> bool:
+        """ Called when pulse goes missing. Returns true if the pulse went
+        missing since the last time it was received -- i.e. it happened since
+        the last time it was updated.
         """
-        old_pulse_missing = pulse_data.pulse_missing
-        if pulse_update == PulseUpdateType.PULSE_EXPIRED:
-            if old_pulse_missing:
-                return False
-            pulse_data.pulse_missing = True
-        else:  # PulseUpdateType.PULSE_RECEIVED
-            pulse_data.pulse_missing = False
+        _LOGGER.debug(
+            "Handling missing pulse: related_entity_id=%s, current_state=%s",
+            pulse_state.related_entity_id,
+            pulse_state.pulse_missing
+        )
+        if pulse_state.pulse_missing:
+            return False
+        pulse_state.pulse_missing = True
+        entity_id = pulse_state.related_entity_id
+        minutes = pulse_state.pulse_minutes
+        persistent_notification.async_create(
+            hass,
+            f"No updates received from '{entity_id}' in {minutes} minutes. ",
+            f"Device pulse missing",
+        )
+        return True
+
+    def _handle_pulse_event(pulse_state: PulseState) -> bool:
+        """ Update a pulse's state when a pulse event is received. Returns
+        True if the state goes from missing to present.
+        """
+        _LOGGER.debug(
+            "Handling pulse event received: entity=%s; current_state=%s",
+            pulse_state.related_entity_id,
+            pulse_state.pulse_missing
+        )
+        state_changed = pulse_state.pulse_missing
+        pulse_state.pulse_missing = False
         now = datetime.datetime.now()
-        pulse_data.update_time = now
-        pulse_data.last_exception = None
-        pulse_data.trigger_time = now + \
-            datetime.timedelta(minutes=pulse_data.pulse_minutes)
-        return old_pulse_missing != pulse_data.pulse_missing
+        pulse_state.update_time = now
+        pulse_state.last_exception = None
+        pulse_state.set_next_deadline()
+        return state_changed
+
+    async def _set_next_deadline():
+        """If a timeout has not been scheduled, schedule one for the closest
+        receipt_deadline in the future. Does not schedule a timeout if all the
+        pulses have gone missing.
+
+        Note that the callback timer's resolution is seconds, so 1 is added to
+        the timeout to avoid timeout times of zero.
+        """
+        async with _pulse_data_lock:
+            nonlocal _timeout_scheduled
+            if _timeout_scheduled:
+                return
+            next_timeout: Optional[datetime.datetime] = None
+            now = datetime.datetime.now()
+            for sensor_id, pulse_state in sensor_registry.items():
+                if pulse_state.receipt_deadline < now:
+                    continue
+                if next_timeout is None:
+                    next_timeout = pulse_state.receipt_deadline
+                    continue
+                if pulse_state.receipt_deadline < next_timeout:
+                    next_timeout = pulse_state.receipt_deadline
+            if next_timeout is None:
+                _LOGGER.debug("No next timeout found")
+                return
+            _LOGGER.debug(
+                "Setting next pulse timeout: scheduled=%s",
+                next_timeout
+            )
+            _timeout_scheduled = True
+        next_timeout_seconds = int((next_timeout - now).total_seconds()) + 1
+        async_call_later(hass, next_timeout_seconds, _pulse_timeout)
 
     # noinspection PyUnusedLocal
     # timestamp ignored
-    async def _update_pulse_missing(timestamp: datetime.datetime) -> None:
-        """Update missing pulse sensors, by comparing the trigger time for
-        each with the current time. Also sets up a timer callback for the next
-        trigger time in line.
+    async def _pulse_timeout(timestamp: datetime.datetime) -> None:
+        """Given the current time, examines each of the sensors, and, if its
+        receipt_deadline is in the past, handles it as a missing pulse. Then,
+        sets the next timout.
         """
+        _LOGGER.debug("Pulse timeout!")
         state_changed = False
         async with _pulse_data_lock:
-            next_trigger: Optional[datetime.datetime] = None
+            nonlocal _timeout_scheduled
+            _timeout_scheduled = False
             now = datetime.datetime.now()
-            for sensor_id, data in sensor_registry.items():
-                if now > data.trigger_time:
-                    state_changed |= _update_pulse(
-                        data,
-                        PulseUpdateType.PULSE_EXPIRED
-                    )
-                if next_trigger is None:
-                    next_trigger = data.trigger_time
-                elif data.trigger_time < next_trigger:
-                    next_trigger = data.trigger_time
-            next_trigger_seconds = int((next_trigger - now).total_seconds())
-            async_call_later(hass, next_trigger_seconds, _update_pulse_missing)
+            for sensor_id, pulse_state in sensor_registry.items():
+                _LOGGER.debug(
+                    "State: entity=%s, now=%s; deadline=%s",
+                    pulse_state.related_entity_id,
+                    now,
+                    pulse_state.receipt_deadline
+                )
+                if pulse_state.receipt_deadline < now:
+                    state_changed |= _handle_missing_pulse(pulse_state)
         if state_changed:
             async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
+        await _set_next_deadline()
 
     async def _event_to_pulse(event: Event):
-        """Event listener that extracts the pulse of registered entities."""
-        for sensor_id, sensor_data in sensor_registry.items():
-            if sensor_data.related_entity_id == event.data['entity_id']:
-                state_changed: bool = _update_pulse(
-                    sensor_data,
-                    PulseUpdateType.PULSE_RECEIVED
-                )
-                if state_changed:
-                    async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
-                _LOGGER.debug(
-                    "Pulse received: related_entity_id=%s; state_changed=%s",
-                    event.data['entity_id'],
-                    state_changed
-                )
+        """Event listener, that, when the event's entity corresponds to one
+        of the sensors' related entities, resets that sensor's timeout. Also
+        calls _set_next_deadline() to handle the case where all the pulses
+        have gone missing, and the pulse timout has to be restarted.
+        """
+        async with _pulse_data_lock:
+            for sensor_id, sensor_data in sensor_registry.items():
+                if sensor_data.related_entity_id == event.data['entity_id']:
+                    state_changed: bool = _handle_pulse_event(sensor_data)
+                    if state_changed:
+                        async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
+                    _LOGGER.debug(
+                        "Pulse received: entity_id=%s; state_changed=%s",
+                        event.data['entity_id'],
+                        state_changed
+                    )
+                    break
+        await _set_next_deadline()
 
-    hass.bus.async_listen(EVENT_STATE_CHANGED, _event_to_pulse)
-    await _update_pulse_missing(datetime.datetime.now())
+    async def _start_pulse_monitor(event_time: datetime.datetime):
+        """Start monitoring pulses, and set up the first pulse deadline."""
+        for sensor_id, pulse_state in sensor_registry.items():
+            pulse_state.set_next_deadline()
+        hass.bus.async_listen(EVENT_STATE_CHANGED, _event_to_pulse)
+        await _set_next_deadline()
+
+    # Start working once HASS is up.
+    hass.bus.async_listen(EVENT_HOMEASSISTANT_STARTED, _start_pulse_monitor)
 
 
 class PulseMissingSensor(BinarySensorEntity):
@@ -206,14 +275,14 @@ class PulseMissingSensor(BinarySensorEntity):
         id_: str,
         name: str,
         icon: Optional[str],
-        sensor_data: PulseMissingData
+        pulse_state: PulseState
     ) -> None:
         """Initialize the sensor, with an id, name, and pulse period. Also,
         give it access to the sensor data that is collected out of band.
         """
         self._name: str = name
         self._unique_id: str = id_
-        self._sensor_data: PulseMissingData = sensor_data
+        self._pulse_state: PulseState = pulse_state
         self._icon: str = icon
 
     @property
@@ -252,15 +321,6 @@ class PulseMissingSensor(BinarySensorEntity):
         return False
 
     @property
-    def data(self) -> PulseMissingData:
+    def data(self) -> PulseState:
         """Return registry entry for the data."""
-        return self._sensor_data
-
-    async def async_added_to_hass(self) -> None:
-        """When entity is added to hass."""
-        await super().async_added_to_hass()
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_HAUSMON_UPDATE, self.async_write_ha_state
-            )
-        )
+        return self._pulse_state
