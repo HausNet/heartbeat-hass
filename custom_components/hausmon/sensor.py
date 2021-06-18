@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 import datetime
 import logging
 from enum import Enum
 from typing import Any, Dict, Optional, List
+import pprint
 
 import voluptuous as vol
 
@@ -137,13 +139,15 @@ async def async_manage_sensor_registry_updates(
     _pulse_data_lock = asyncio.Lock()
     _timeout_scheduled = False
 
-    def _handle_missing_pulse(pulse_state: PulseState) -> bool:
+    def _handle_missing_pulse(sensor_id: str, pulse_state: PulseState) -> bool:
         """ Called when pulse goes missing. Returns true if the pulse went
         missing since the last time it was received -- i.e. it happened since
         the last time it was updated.
         """
         _LOGGER.debug(
-            "Handling missing pulse: related_entity_id=%s, current_state=%s",
+            "Handling missing pulse: "
+            "sensor=%s, related_entity_id=%s, current_state=%s",
+            sensor_id,
             pulse_state.related_entity_id,
             pulse_state.pulse_missing
         )
@@ -155,7 +159,8 @@ async def async_manage_sensor_registry_updates(
         persistent_notification.async_create(
             hass,
             f"No updates received from '{entity_id}' in {minutes} minutes. ",
-            f"Device pulse missing",
+            title=f"Pulse missing: {sensor_id}",
+            notification_id=sensor_id + str(int(time.time()))
         )
         return True
 
@@ -224,13 +229,17 @@ async def async_manage_sensor_registry_updates(
             now = datetime.datetime.now()
             for sensor_id, pulse_state in sensor_registry.items():
                 _LOGGER.debug(
-                    "State: entity=%s, now=%s; deadline=%s",
+                    "State: sensor=%s; entity=%s, now=%s; deadline=%s",
+                    sensor_id,
                     pulse_state.related_entity_id,
                     now,
                     pulse_state.receipt_deadline
                 )
                 if pulse_state.receipt_deadline < now:
-                    state_changed |= _handle_missing_pulse(pulse_state)
+                    state_changed |= _handle_missing_pulse(
+                        sensor_id,
+                        pulse_state
+                    )
         if state_changed:
             async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
         await _set_next_deadline()
@@ -244,6 +253,10 @@ async def async_manage_sensor_registry_updates(
         async with _pulse_data_lock:
             for sensor_id, sensor_data in sensor_registry.items():
                 if sensor_data.related_entity_id == event.data['entity_id']:
+
+                    pp = pprint.PrettyPrinter(indent=4)
+                    pp.pprint(event)
+
                     state_changed: bool = _handle_pulse_event(sensor_data)
                     if state_changed:
                         async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
