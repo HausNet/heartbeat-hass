@@ -250,22 +250,18 @@ async def async_manage_sensor_registry_updates(
         calls _set_next_deadline() to handle the case where all the pulses
         have gone missing, and the pulse timout has to be restarted.
         """
+        state_changed: bool = False
         async with _pulse_data_lock:
             for sensor_id, sensor_data in sensor_registry.items():
                 if sensor_data.related_entity_id == event.data['entity_id']:
-
-                    pp = pprint.PrettyPrinter(indent=4)
-                    pp.pprint(event)
-
-                    state_changed: bool = _handle_pulse_event(sensor_data)
-                    if state_changed:
-                        async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
+                    state_changed |= _handle_pulse_event(sensor_data)
                     _LOGGER.debug(
                         "Pulse received: entity_id=%s; state_changed=%s",
                         event.data['entity_id'],
                         state_changed
                     )
-                    break
+        if state_changed:
+            async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
         await _set_next_deadline()
 
     async def _start_pulse_monitor(event_time: datetime.datetime):
