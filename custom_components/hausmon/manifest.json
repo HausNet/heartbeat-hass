@@ -5,7 +5,7 @@
   "documentation": "https://hausnet.io",
   "issue_tracker": "https://github.com/HausNet/hausmon-hass/issues",
   "requirements": [
-    "hausmon-client==0.0.4"
+    "hausmon-client==0.0.6"
   ],
   "dependencies": [],
   "codeowners": [
