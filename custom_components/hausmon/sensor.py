@@ -8,7 +8,6 @@ import datetime
 import logging
 from enum import Enum
 from typing import Any, Dict, Optional, List
-import pprint
 
 import voluptuous as vol
 
@@ -28,7 +27,6 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.typing import ConfigType
-import homeassistant.util.dt as dt
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -164,7 +162,7 @@ async def async_manage_sensor_registry_updates(
         )
         return True
 
-    def _handle_pulse_event(pulse_state: PulseState) -> bool:
+    def _handle_pulse_event(sensor_id: str, pulse_state: PulseState) -> bool:
         """ Update a pulse's state when a pulse event is received. Returns
         True if the state goes from missing to present.
         """
@@ -179,6 +177,13 @@ async def async_manage_sensor_registry_updates(
         pulse_state.update_time = now
         pulse_state.last_exception = None
         pulse_state.set_next_deadline()
+        entity_id = pulse_state.related_entity_id
+        persistent_notification.async_create(
+            hass,
+            f"Missing pulse from '{entity_id}' resumed. ",
+            title=f"Pulse resumed: {sensor_id}",
+            notification_id=sensor_id + str(int(time.time()))
+        )
         return state_changed
 
     async def _set_next_deadline():
@@ -254,7 +259,7 @@ async def async_manage_sensor_registry_updates(
         async with _pulse_data_lock:
             for sensor_id, sensor_data in sensor_registry.items():
                 if sensor_data.related_entity_id == event.data['entity_id']:
-                    state_changed |= _handle_pulse_event(sensor_data)
+                    state_changed |= _handle_pulse_event(sensor_id, sensor_data)
                     _LOGGER.debug(
                         "Pulse received: entity_id=%s; state_changed=%s",
                         event.data['entity_id'],
@@ -264,6 +269,8 @@ async def async_manage_sensor_registry_updates(
             async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
         await _set_next_deadline()
 
+    # For event_time, passed in by HASS, but not used.
+    # noinspection PyUnusedLocal
     async def _start_pulse_monitor(event_time: datetime.datetime):
         """Start monitoring pulses, and set up the first pulse deadline."""
         for sensor_id, pulse_state in sensor_registry.items():
@@ -313,11 +320,6 @@ class PulseMissingSensor(BinarySensorEntity):
     def icon(self) -> Optional[str]:
         """Icon to use in the frontend."""
         return self._icon
-
-    @property
-    def state(self) -> Optional[bool]:
-        """Return the state of the device."""
-        return self.data.pulse_missing
 
     @property
     def available(self) -> bool:
