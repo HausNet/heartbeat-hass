@@ -73,6 +73,8 @@ class HeartbeatService:
         self._device_name: str = hass_data.get(CONF_DEVICE)
         asyncio.run_coroutine_threadsafe(self.beat_heart(), hass.loop)
 
+    # noinspection PyUnusedLocal
+    # (for arg - unused)
     async def beat_heart(self, arg: Optional[datetime.datetime] = None) -> None:
         """ Called by timer (or at object construction time, once) to beat the
         heart at the service. Sets up the call for the next beat at the end.

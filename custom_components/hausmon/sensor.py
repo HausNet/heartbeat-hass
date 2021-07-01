@@ -6,7 +6,6 @@ import time
 from dataclasses import dataclass
 import datetime
 import logging
-from enum import Enum
 from typing import Any, Dict, Optional, List
 
 import voluptuous as vol
@@ -57,12 +56,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         )
     }
 )
-
-
-class PulseUpdateType(Enum):
-    """Indicators of why a pulse is being updated."""
-    PULSE_RECEIVED = 1
-    PULSE_EXPIRED = 2
 
 
 @dataclass
