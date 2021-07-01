@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, List
 
 import voluptuous as vol
 
-from components import persistent_notification
+from homeassistant.components import persistent_notification
 from homeassistant.components.binary_sensor import (
     PLATFORM_SCHEMA,
     BinarySensorEntity
