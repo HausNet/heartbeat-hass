@@ -251,6 +251,11 @@ async def async_manage_sensor_registry_updates(
         state_changed: bool = False
         async with _pulse_data_lock:
             for sensor_id, sensor_data in sensor_registry.items():
+                _LOGGER.debug(
+                    "Matching event: related_entity_id: %s; event_entity_id",
+                    sensor_data.related_entity_id,
+                    event.data['entity_id']
+                )
                 if sensor_data.related_entity_id == event.data['entity_id']:
                     state_changed |= _handle_pulse_event(sensor_id, sensor_data)
                     _LOGGER.debug(
