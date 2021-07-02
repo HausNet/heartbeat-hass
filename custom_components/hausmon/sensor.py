@@ -250,6 +250,7 @@ async def async_manage_sensor_registry_updates(
         have gone missing, and the pulse timout has to be restarted.
         """
 
+        _LOGGER.debug("Event listener triggered!")
         pp = pprint.PrettyPrinter()
         pp.pprint(event)
 
@@ -257,7 +258,7 @@ async def async_manage_sensor_registry_updates(
         async with _pulse_data_lock:
             for sensor_id, sensor_data in sensor_registry.items():
                 _LOGGER.debug(
-                    "Matching event: related_entity_id: %s; event_entity_id",
+                    "Matching event: related_entity_id=%s; event_entity_id=%s",
                     sensor_data.related_entity_id,
                     event.data['entity_id']
                 )
@@ -278,7 +279,15 @@ async def async_manage_sensor_registry_updates(
         """Start monitoring pulses, and set up the first pulse deadline."""
         for sensor_id, pulse_state in sensor_registry.items():
             pulse_state.set_next_deadline()
-        hass.bus.async_listen(EVENT_STATE_CHANGED, _event_to_pulse)
+        remove_listener = hass.bus.async_listen(
+            EVENT_STATE_CHANGED,
+            _event_to_pulse
+        )
+
+        _LOGGER.debug("Event listener installed!")
+        pp = pprint.PrettyPrinter()
+        pp.pprint(remove_listener)
+
         await _set_next_deadline()
 
     # Start working once HASS is up.
