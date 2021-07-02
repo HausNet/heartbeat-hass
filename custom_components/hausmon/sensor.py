@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import datetime
 import logging
 from typing import Any, Dict, Optional, List
+import pprint
 
 import voluptuous as vol
 
@@ -248,6 +249,10 @@ async def async_manage_sensor_registry_updates(
         calls _set_next_deadline() to handle the case where all the pulses
         have gone missing, and the pulse timout has to be restarted.
         """
+
+        pp = pprint.PrettyPrinter()
+        pp.pprint(event)
+
         state_changed: bool = False
         async with _pulse_data_lock:
             for sensor_id, sensor_data in sensor_registry.items():
