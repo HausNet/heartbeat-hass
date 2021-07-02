@@ -152,7 +152,7 @@ async def async_manage_sensor_registry_updates(
             hass,
             f"No updates received from '{entity_id}' in {minutes} minutes. ",
             title=f"Pulse missing: {sensor_id}",
-            notification_id=sensor_id + str(int(time.time()))
+            notification_id=sensor_id + '.' + str(int(time.time()))
         )
         return True
 
@@ -172,12 +172,13 @@ async def async_manage_sensor_registry_updates(
         pulse_state.last_exception = None
         pulse_state.set_next_deadline()
         entity_id = pulse_state.related_entity_id
-        persistent_notification.async_create(
-            hass,
-            f"Missing pulse from '{entity_id}' resumed. ",
-            title=f"Pulse resumed: {sensor_id}",
-            notification_id=sensor_id + str(int(time.time()))
-        )
+        if state_changed:
+            persistent_notification.async_create(
+                hass,
+                f"Missing pulse from '{entity_id}' resumed. ",
+                title=f"Pulse resumed: {sensor_id}",
+                notification_id=sensor_id + str(int(time.time()))
+            )
         return state_changed
 
     async def _set_next_deadline():
