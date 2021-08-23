@@ -3,5 +3,5 @@
 # additional values.
 #
 
-name: "HausMon monitoring client for Home Assistant"
+name: "HausNet Heartbeat monitoring client for Home Assistant"
 iot_class: "Local Push"

@@ -35,7 +35,7 @@ CONF_PULSE_MINUTES = "pulse_minutes"
 DEFAULT_ICON = "mdi.alarm"
 SCAN_INTERVAL_MINUTES = 1
 
-SIGNAL_HAUSMON_UPDATE = "hausmon_update"
+SIGNAL_HEARTBEAT_UPDATE = "heartbeat_update"
 
 # TODO: Make id & name unique
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -241,7 +241,7 @@ async def async_manage_sensor_registry_updates(
                         pulse_state
                     )
         if state_changed:
-            async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
+            async_dispatcher_send(hass, SIGNAL_HEARTBEAT_UPDATE)
         await _set_next_deadline()
 
     async def _event_to_pulse(event: Event):
@@ -271,7 +271,7 @@ async def async_manage_sensor_registry_updates(
                         state_changed
                     )
         if state_changed:
-            async_dispatcher_send(hass, SIGNAL_HAUSMON_UPDATE)
+            async_dispatcher_send(hass, SIGNAL_HEARTBEAT_UPDATE)
         await _set_next_deadline()
 
     # For event_time, passed in by HASS, but not used.

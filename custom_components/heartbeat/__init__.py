@@ -1,4 +1,4 @@
-"""Integration of the HausMon notification service"""
+"""Integration of the HausNet Heartbeat notification service"""
 
 import asyncio
 import datetime
@@ -12,19 +12,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 
-from hausmon_client.client import HausMonClient
+from heartbeat_client.client import HeartbeatClient
 
 # The HASS domain for the component.
-DOMAIN = "hausmon"
+DOMAIN = "hausnet_heartbeat"
 # The logger for the component.
 LOGGER = logging.getLogger(DOMAIN)
 # The URL for the API.
-HAUSMON_URL = os.getenv('HAUSMON_URL', 'https://hausnet.io/hausmon/api')
+HEARTBEAT_URL = os.getenv('HAUSNET_HEARTBEAT_URL', 'https://hausnet.io/hausmon/api')
 
 ##
 # Config looks as follows:
 #
-# hausmon:
+# hausnet_heartbeat:
 #   api_key: [User's API key from service]
 #   device:  [Name of the HASS device at the service]
 #
@@ -43,33 +43,33 @@ CONFIG_SCHEMA = vol.Schema(
 # The default heartbeat period, in seconds. Can be overridden for testing
 # purposes. Note that the service may reject too high a rate of resets. 15
 # minutes is considered adequate.
-HEARTBEAT_PERIOD_SECONDS = int(os.getenv('HAUSMON_PERIOD', str(15*60)))
+HEARTBEAT_PERIOD_SECONDS = int(os.getenv('HEARTBEAT_PERIOD', str(15*60)))
 
 
 async def async_setup(hass, config) -> bool:
-    """Set up the HausMon component."""
-    LOGGER.debug("Setting up HausMon component...")
+    """Set up the Heartbeat component."""
+    LOGGER.debug("Setting up Heartbeat component...")
     if DOMAIN not in config:
         return True
     hass.data[DOMAIN] = config[DOMAIN]
     hass.data[DOMAIN].heartbeat_service = HeartbeatService(hass)
     LOGGER.debug(
-        "Created the HausMon notification service: url=%s; device=%s",
-        HAUSMON_URL, hass.data[DOMAIN].get(CONF_DEVICE)
+        "Created the Heartbeat notification service: url=%s; device=%s",
+        HEARTBEAT_URL, hass.data[DOMAIN].get(CONF_DEVICE)
     )
     return True
 
 
 class HeartbeatService:
-    """Implements a heart-beat via the HausMon monitor service. """
+    """Implements a heart-beat via the Heartbeat monitor service. """
 
     def __init__(self, hass: HomeAssistant):
         """Set up the service"""
         self._hass: HomeAssistant = hass
         hass_data = hass.data[DOMAIN]
-        self._api_url: str = HAUSMON_URL
+        self._api_url: str = HEARTBEAT_URL
         self._api_key: str = hass_data.get(CONF_API_KEY)
-        self._client: Optional[HausMonClient] = None
+        self._client: Optional[HeartbeatClient] = None
         self._device_name: str = hass_data.get(CONF_DEVICE)
         asyncio.run_coroutine_threadsafe(self.beat_heart(), hass.loop)
 
@@ -94,19 +94,19 @@ class HeartbeatService:
             HEARTBEAT_PERIOD_SECONDS
         )
 
-    def _init_api_client(self) -> Optional[HausMonClient]:
+    def _init_api_client(self) -> Optional[HeartbeatClient]:
         """Try to initialize the client, and either either the client instance,
          or 'None', depending on the result.
         """
         # noinspection PyBroadException
         # pylint: disable=broad-except
         try:
-            client = HausMonClient(self._api_url, self._api_key)
-            LOGGER.debug("HausMon client successfully initialized...")
+            client = HeartbeatClient(self._api_url, self._api_key)
+            LOGGER.debug("Heartbeat client successfully initialized...")
             return client
         except Exception:
             LOGGER.exception(
-                "Could not initialize HausMon client"
+                "Could not initialize Heartbeat client"
             )
             return None
 
