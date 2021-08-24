@@ -284,7 +284,7 @@ async def async_manage_sensor_registry_updates(
             EVENT_STATE_CHANGED,
             _event_to_pulse
         )
-
+        # TODO: Remove
         _LOGGER.debug("Event listener installed!")
         pp = pprint.PrettyPrinter()
         pp.pprint(remove_listener)
