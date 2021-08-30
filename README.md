@@ -36,3 +36,7 @@ Then, set up the component:
 9. Restart Home Assistant. 
 
 # Releases
+
+## r0.1
+
+Changed the hausmon service to "heartbeat", and added the latest heartbeat client as a dependency.
