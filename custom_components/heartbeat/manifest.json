@@ -6,7 +6,7 @@
   "version": "0.0.6",
   "issue_tracker": "https://github.com/HausNet/heartbeat-hass/issues",
   "requirements": [
-    "hausnet_heartbeat_client==0.1"
+    "hausnet_heartbeat_client==0.1.1"
   ],
   "dependencies": [],
   "codeowners": [

@@ -19,7 +19,10 @@ DOMAIN = "hausnet_heartbeat"
 # The logger for the component.
 LOGGER = logging.getLogger(DOMAIN)
 # The URL for the API.
-HEARTBEAT_URL = os.getenv('HAUSNET_HEARTBEAT_URL', 'https://hausnet.io/hausmon/api')
+HEARTBEAT_URL = os.getenv(
+    'HAUSNET_HEARTBEAT_URL',
+    'https://hausnet.io/heartbeat/api'
+)
 
 ##
 # Config looks as follows:

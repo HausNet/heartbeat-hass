@@ -34,3 +34,5 @@ Then, set up the component:
      device: "home"
      ```
 9. Restart Home Assistant. 
+
+# Releases
