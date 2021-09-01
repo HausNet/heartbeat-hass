@@ -38,5 +38,7 @@ Then, set up the component:
 # Releases
 
 ## r0.1
-
 Changed the hausmon service to "heartbeat", and added the latest heartbeat client as a dependency.
+
+## r0.1.1
+Changed the url of the service to "app.hausnet.io"

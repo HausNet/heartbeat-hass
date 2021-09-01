@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(DOMAIN)
 # The URL for the API.
 HEARTBEAT_URL = os.getenv(
     'HAUSNET_HEARTBEAT_URL',
-    'https://hausnet.io/heartbeat/api'
+    'https://app.hausnet.io/heartbeat/api'
 )
 
 ##
