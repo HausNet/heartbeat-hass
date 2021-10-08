@@ -7,6 +7,8 @@ import os
 from typing import Optional
 
 import voluptuous as vol
+from homeassistant.config_entries import ConfigEntry
+
 import homeassistant.helpers.config_validation as cv
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later
@@ -23,6 +25,7 @@ HEARTBEAT_URL = os.getenv(
     'HAUSNET_HEARTBEAT_URL',
     'https://app.hausnet.io/heartbeat/api'
 )
+HEARTBEAT_SERVICE = 'heartbeat'
 
 ##
 # Config looks as follows:
@@ -43,19 +46,20 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-# The default heartbeat period, in seconds. Can be overridden for testing
+# The default heartbeat period,
+# in seconds. Can be overridden for testing
 # purposes. Note that the service may reject too high a rate of resets. 15
 # minutes is considered adequate.
 HEARTBEAT_PERIOD_SECONDS = int(os.getenv('HEARTBEAT_PERIOD', str(15*60)))
 
 
-async def async_setup(hass, config) -> bool:
+async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
     """Set up the Heartbeat component."""
     LOGGER.debug("Setting up Heartbeat component...")
-    if DOMAIN not in config:
-        return True
-    hass.data[DOMAIN] = config[DOMAIN]
-    hass.data[DOMAIN].heartbeat_service = HeartbeatService(hass)
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][HEARTBEAT_SERVICE] = HeartbeatService(
+        hass, config.data[CONF_API_KEY], config.data[CONF_DEVICE]
+    )
     LOGGER.debug(
         "Created the Heartbeat notification service: url=%s; device=%s",
         HEARTBEAT_URL, hass.data[DOMAIN].get(CONF_DEVICE)
@@ -66,14 +70,14 @@ async def async_setup(hass, config) -> bool:
 class HeartbeatService:
     """Implements a heart-beat via the Heartbeat monitor service. """
 
-    def __init__(self, hass: HomeAssistant):
+    def __init__(self, hass: HomeAssistant, api_key: str, device: str):
         """Set up the service"""
         self._hass: HomeAssistant = hass
         hass_data = hass.data[DOMAIN]
         self._api_url: str = HEARTBEAT_URL
-        self._api_key: str = hass_data.get(CONF_API_KEY)
+        self._api_key: str = api_key
+        self._device_name: str = device
         self._client: Optional[HeartbeatClient] = None
-        self._device_name: str = hass_data.get(CONF_DEVICE)
         asyncio.run_coroutine_threadsafe(self.beat_heart(), hass.loop)
 
     # noinspection PyUnusedLocal
@@ -142,3 +146,5 @@ class HeartbeatService:
             self._device_name,
             heartbeat['id']
         )
+
+

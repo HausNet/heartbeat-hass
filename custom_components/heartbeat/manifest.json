@@ -1,12 +1,13 @@
 {
   "domain": "hausnet_heartbeat",
   "name": "HausNet Heartbeat",
-  "config_flow": false,
-  "documentation": "https://hausnet.io",
+  "config_flow": true,
+  "documentation": "https://hausnet.io/docs",
   "version": "0.0.6",
   "issue_tracker": "https://github.com/HausNet/heartbeat-hass/issues",
   "requirements": [
-    "hausnet_heartbeat_client==0.1.1"
+      "bravado==11.0.3",
+      "jsonschema<4.0.0"
   ],
   "dependencies": [],
   "codeowners": [
