@@ -57,9 +57,9 @@ class HeartbeatClient:
         return None
 
     def get_heartbeat(self, device_name: str) -> Union[Dict, None]:
-        """Get a device's heartbeat.
+        """Get a device's hausnet_heartbeat.
 
-        :return: The heartbeat (dynamic) object if a heartbeat exists for the device, otherwise "None"
+        :return: The hausnet_heartbeat (dynamic) object if a hausnet_heartbeat exists for the device, otherwise "None"
 
         TODO: Add an API call to do this directly from the device name.
         """
@@ -72,6 +72,6 @@ class HeartbeatClient:
         return heartbeat
 
     def send_heartbeat(self, heartbeat_id: int):
-        """Send a heartbeat for a specific heartbeat definition (or device). """
+        """Send a hausnet_heartbeat for a specific hausnet_heartbeat definition (or device). """
         # noinspection PyUnresolvedReferences
         self.client.heartbeats.heartbeats_beat(id=heartbeat_id).response()

@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 
-from heartbeat_client.client import HeartbeatClient
+from .client import HeartbeatClient
 
 # The HASS domain for the component.
 DOMAIN = "hausnet_heartbeat"
@@ -25,7 +25,7 @@ HEARTBEAT_URL = os.getenv(
     'HAUSNET_HEARTBEAT_URL',
     'https://app.hausnet.io/heartbeat/api'
 )
-HEARTBEAT_SERVICE = 'heartbeat'
+HEARTBEAT_SERVICE = 'hausnet_heartbeat'
 
 ##
 # Config looks as follows:
@@ -46,7 +46,7 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-# The default heartbeat period,
+# The default hausnet_heartbeat period,
 # in seconds. Can be overridden for testing
 # purposes. Note that the service may reject too high a rate of resets. 15
 # minutes is considered adequate.
@@ -93,7 +93,7 @@ class HeartbeatService:
         self._set_heartbeat_timer()
 
     def _set_heartbeat_timer(self) -> None:
-        """Set up the next call to the heartbeat function."""
+        """Set up the next call to the hausnet_heartbeat function."""
         # noinspection PyTypeChecker
         async_call_later(self._hass, HEARTBEAT_PERIOD_SECONDS, self.beat_heart)
         LOGGER.debug(
@@ -119,7 +119,7 @@ class HeartbeatService:
 
     # noinspection PyBroadException
     def _send_heartbeat_with_retry(self):
-        """Try sending the heartbeat, and if that fails, re-initialize the
+        """Try sending the hausnet_heartbeat, and if that fails, re-initialize the
         client and retry (once).
         """
         try:
@@ -137,12 +137,12 @@ class HeartbeatService:
             LOGGER.exception("Heartbeat send failed. Skipping beat.")
 
     def _send_heartbeat(self):
-        """Send a heartbeat to reset the heartbeat timer for a device.
+        """Send a hausnet_heartbeat to reset the hausnet_heartbeat timer for a device.
         """
         heartbeat = self._client.get_heartbeat(self._device_name)
         self._client.send_heartbeat(heartbeat['id'])
         LOGGER.debug(
-            "Sent a heartbeat for: device=%s; heartbeat_id=%d",
+            "Sent a hausnet_heartbeat for: device=%s; heartbeat_id=%d",
             self._device_name,
             heartbeat['id']
         )

@@ -1,4 +1,4 @@
-"""Tests for heartbeat config flow."""
+"""Tests for hausnet_heartbeat config flow."""
 from unittest.mock import patch
 
 import pytest
@@ -9,7 +9,7 @@ from voluptuous.error import MultipleInvalid
 
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 from homeassistant import config_entries
-from homeassistant.components.hausnet_heartbeat import DOMAIN
+from custom_components.hausnet_heartbeat import DOMAIN
 
 
 async def test_flow_empty_name(hass):
@@ -39,7 +39,7 @@ async def test_flow_works(hass):
     assert result['errors'] is None
 
     with patch(
-        "homeassistant.components.hausnet_heartbeat.async_setup",
+        "custom_components.hausnet_heartbeat.async_setup_entry",
         return_value=True
     ):
         result = await hass.config_entries.flow.async_configure(
