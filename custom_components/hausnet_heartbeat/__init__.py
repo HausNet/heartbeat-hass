@@ -4,13 +4,14 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 
 import homeassistant.helpers.config_validation as cv
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.event import async_call_later
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 
@@ -23,7 +24,7 @@ LOGGER = logging.getLogger(DOMAIN)
 # The URL for the API.
 HEARTBEAT_URL = os.getenv(
     'HAUSNET_HEARTBEAT_URL',
-    'https://app.hausnet.io/heartbeat/api'
+    'https://app.hausnet.iop/heartbeat/api'
 )
 HEARTBEAT_SERVICE = 'hausnet_heartbeat'
 
@@ -34,15 +35,11 @@ HEARTBEAT_SERVICE = 'hausnet_heartbeat'
 #   api_key: [User's API key from service]
 #   device:  [Name of the HASS device at the service]
 #
-CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Optional(DOMAIN): vol.Schema(
-            {
-                vol.Required(CONF_API_KEY): cv.string,
-                vol.Required(CONF_DEVICE): cv.string,
-            }
-        )
-    },
+CONFIG_SCHEMA = vol.Schema({
+    vol.Optional(DOMAIN): vol.Schema({
+        vol.Required(CONF_API_KEY): cv.string,
+        vol.Required(CONF_DEVICE): cv.string,
+    })},
     extra=vol.ALLOW_EXTRA,
 )
 
@@ -53,13 +50,23 @@ CONFIG_SCHEMA = vol.Schema(
 HEARTBEAT_PERIOD_SECONDS = int(os.getenv('HEARTBEAT_PERIOD', str(15*60)))
 
 
+class DeviceNotFoundError(Exception):
+    """ An exception indicating that a device was not found at the service. """
+    pass
+
+
 async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
     """Set up the Heartbeat component."""
     LOGGER.debug("Setting up Heartbeat component...")
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][HEARTBEAT_SERVICE] = HeartbeatService(
+    service = HeartbeatService(
         hass, config.data[CONF_API_KEY], config.data[CONF_DEVICE]
     )
+    try:
+        service._get_api_client()
+    except Exception as e:
+        raise ConfigEntryAuthFailed(e) from e
+    hass.data[DOMAIN][HEARTBEAT_SERVICE] = service
     LOGGER.debug(
         "Created the Heartbeat notification service: url=%s; device=%s",
         HEARTBEAT_URL, hass.data[DOMAIN].get(CONF_DEVICE)
@@ -69,6 +76,12 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
 
 class HeartbeatService:
     """Implements a heart-beat via the Heartbeat monitor service. """
+
+    # Service connection error codes
+    CONNECT_FAILED = 0
+    AUTH_FAILED = 1
+    DEVICE_NOT_FOUND = 2
+    UNKNOWN_FAILURE =3
 
     def __init__(self, hass: HomeAssistant, api_key: str, device: str):
         """Set up the service"""
@@ -101,37 +114,48 @@ class HeartbeatService:
             HEARTBEAT_PERIOD_SECONDS
         )
 
-    def _init_api_client(self) -> Optional[HeartbeatClient]:
-        """Try to initialize the client, and either either the client instance,
-         or 'None', depending on the result.
+    @staticmethod
+    def _get_api_client(url: str, token: str) -> HeartbeatClient:
+        """ Try to initialize the client and reflect an exception if it could
+            not, using the given service url and access token. Return either
+            the client instance, or 'None', depending on the result.
         """
-        # noinspection PyBroadException
-        # pylint: disable=broad-except
+        return HeartbeatClient(url, token)
+
+    @staticmethod
+    def verify_connection(url: str, token: str) -> Tuple[bool, Optional[int]]:
+        """ Connects to the service, and verifies that the given token
+            allows access, and that the given device exists at the service.
+
+            Returns a tuple of (bool, str), containing (True, None) if
+            connection checks out, or (True, reason) if not, with reason
+            one of:
+                - CONNECT_FAILED:   Could not connect to service
+                - AUTH_FAILED:      Authentication failed (wrong token)
+                - DEVICE_NOT_FOUND: No device with the given name
+                - UNKNOWN_FAILURE:  Failure to connect for an unknown reason
+        """
         try:
-            client = HeartbeatClient(self._api_url, self._api_key)
-            LOGGER.debug("Heartbeat client successfully initialized...")
-            return client
-        except Exception:
-            LOGGER.exception(
-                "Could not initialize Heartbeat client"
-            )
-            return None
+            api_client = HeartbeatService._get_api_client(url, token)
+        except Exception as e:
+            return False, HeartbeatService.CONNECT_FAILED
+        return True, None
 
     # noinspection PyBroadException
     def _send_heartbeat_with_retry(self):
-        """Try sending the hausnet_heartbeat, and if that fails, re-initialize the
-        client and retry (once).
+        """ Try sending the hausnet_heartbeat, and if that fails, re-initialize
+            the client and retry (once).
         """
         try:
             if not self._client:
-                self._client = self._init_api_client()
+                self._client = self._get_api_client()
             self._send_heartbeat()
             return
         except Exception:
             LOGGER.exception("Heartbeat send failed. Retrying...")
         try:
             self._client = None
-            self._client = self._init_api_client()
+            self._client = self._get_api_client()
             self._send_heartbeat()
         except Exception:
             LOGGER.exception("Heartbeat send failed. Skipping beat.")

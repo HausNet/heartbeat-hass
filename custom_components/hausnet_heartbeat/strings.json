@@ -7,7 +7,14 @@
           "device": "Device"
         },
         "title": "Connect to HausNet Apps"
+      },
+      "reauth_confirm": {
+        "title": "[%key:common::config_flow::title::reauth%]",
+        "description":"The HausNet Heartbeat integration needs to re-authenticate your account"
       }
+    },
+    "abort": {
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
     }
   }
 }
