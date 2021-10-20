@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 import homeassistant.helpers.config_validation as cv
 
-from . import DOMAIN, HeartbeatService
+from . import DOMAIN, HEARTBEAT_URL, HeartbeatService
 
 HEARTBEAT_CONFIG_ID = "heartbeat_config"
 
@@ -23,13 +23,14 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    @staticmethod
-    def _validate_input(user_input: Dict[str, Any]) -> \
+    async def _validate_input(self, user_input: Dict[str, Any]) -> \
             Tuple[bool, Dict[str, str]]:
         """ Validate form input. """
         errors = {}
 
-        success, error_code = HeartbeatService.verify_connection(
+        success, error_code = await HeartbeatService.verify_connection(
+            self.hass,
+            HEARTBEAT_URL,
             user_input[CONF_API_KEY],
             user_input[CONF_DEVICE]
         )
@@ -49,7 +50,7 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
         """ User-driven discovery. """
         errors = {}
         if user_input is not None:
-            success, errors = HeartbeatConfigFlow._validate_input(user_input)
+            success, errors = await self._validate_input(user_input)
             if success:
                 await self.async_set_unique_id(HEARTBEAT_CONFIG_ID)
                 self._abort_if_unique_id_configured()
@@ -62,9 +63,6 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=HEARTBEAT_SCHEMA,
             errors=errors
         )
-
-    async def is_valid(self, user_input: dict[str, Any]) -> bool:
-        """ Determine if user input is valid."""
 
     async def async_step_reauth(self, user_input=None):
         """ Perform reauth upon an API authentication error. """
