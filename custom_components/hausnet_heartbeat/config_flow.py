@@ -37,11 +37,11 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
         if error_code == HeartbeatService.CONNECT_FAILED:
             errors['base'] = 'cannot_connect'
         elif error_code == HeartbeatService.AUTH_FAILED:
-            errors['base'] = 'invalid_auth'
+            errors[CONF_API_KEY] = 'invalid_auth'
         elif error_code == HeartbeatService.DEVICE_NOT_FOUND:
-            errors['base'] = 'invalid_device'
-        else:
-            errors['base'] = 'unknown'
+            errors[CONF_DEVICE] = 'invalid_device'
+        elif not success:
+            errors['base'] = 'cannot_connect'
         return success, errors
 
     async def async_step_user(
@@ -49,19 +49,26 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """ User-driven discovery. """
         errors = {}
+        api_key_field = None
+        device_field = None
         if user_input is not None:
             success, errors = await self._validate_input(user_input)
             if success:
-                await self.async_set_unique_id(HEARTBEAT_CONFIG_ID)
+                await self.async_set_unique_id(user_input[CONF_API_KEY])
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title='Heartbeat Configuration',
                     data=user_input
                 )
+            api_key_field = user_input[CONF_API_KEY]
+            device_field = user_input[CONF_DEVICE]
         return self.async_show_form(
             step_id="user",
-            data_schema=HEARTBEAT_SCHEMA,
-            errors=errors
+            data_schema=vol.Schema({
+                vol.Required(CONF_API_KEY, default=api_key_field): cv.string,
+                vol.Required(CONF_DEVICE, default=device_field): cv.string,
+            }),
+            errors=errors,
         )
 
     async def async_step_reauth(self, user_input=None):

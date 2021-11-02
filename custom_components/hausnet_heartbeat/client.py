@@ -4,10 +4,17 @@ from typing import Dict, List, Union, Optional
 import logging
 
 from urllib.parse import urlparse
+
+import bravado.exception
 from bravado.client import SwaggerClient
 from bravado.requests_client import RequestsClient
 
 log = logging.getLogger(__name__)
+
+
+class HeartbeatClientAuthError(Exception):
+    """ Exception when service authentication failed. """
+    pass
 
 
 class HeartbeatClientConnectError(Exception):
@@ -41,16 +48,18 @@ class HeartbeatClient:
             param_in='header',
             param_name='Authorization'
         )
+        self.swagger_client = None
         try:
             self.swagger_client = SwaggerClient.from_url(
                 f'{service_url}/swagger.json', http_client=http_client
             )
             log.info(f"Connected to Heartbeat client at: url={service_url}")
+        except bravado.exception.HTTPUnauthorized as e:
+            raise HeartbeatClientAuthError from e
         except Exception as e:
             log.exception(
                 f"Failed to connect to Heartbeat client: url={service_url}"
             )
-            self.swagger_client = None
             raise HeartbeatClientConnectError from e
 
     @property

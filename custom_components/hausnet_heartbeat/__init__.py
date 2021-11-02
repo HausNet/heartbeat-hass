@@ -15,7 +15,8 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.event import async_call_later
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE
 
-from .client import HeartbeatClient, HeartbeatClientConnectError
+from .client import HeartbeatClient, HeartbeatClientConnectError, \
+    HeartbeatClientAuthError
 
 # The HASS domain for the component.
 DOMAIN = "hausnet_heartbeat"
@@ -158,13 +159,15 @@ class HeartbeatService:
                     HeartbeatClient(c_url, c_token)
             )
             device = await hass.async_add_executor_job(
-                api_client.get_device, [device_name]
+                api_client.get_device, device_name
             )
             if not device:
                 return False, HeartbeatService.DEVICE_NOT_FOUND
+        except HeartbeatClientAuthError:
+            return False, HeartbeatService.AUTH_FAILED
         except HeartbeatClientConnectError:
             return False, HeartbeatService.CONNECT_FAILED
-        except Exception as e:
+        except Exception:
             return False, HeartbeatService.CONNECT_FAILED
         return True, None
 

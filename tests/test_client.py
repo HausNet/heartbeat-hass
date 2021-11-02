@@ -14,9 +14,14 @@ def test_devices_can_be_listed():
         {'id': 3, 'name': 'device_C', 'heartbeat_id': 2},
     ]
     mock_client = mock.MagicMock(name='Mock Swagger Client')
-    with mock.patch.object(hbc.SwaggerClient, 'from_url', return_value=mock_client):
-        heartbeat_client = hbc.HeartbeatClient(service_url='http://fakeurl', token='some-token')
-        mock_client.devices.devices_list().response.return_value = BravadoResponseMock(result=devices)
+    with mock.patch.object(
+        hbc.SwaggerClient, 'from_url', return_value=mock_client
+    ):
+        heartbeat_client = hbc.HeartbeatClient(
+            service_url='http://fakeurl', token='some-token'
+        )
+        mock_client.devices.devices_list().response.return_value = \
+            BravadoResponseMock(result=devices)
         devices = heartbeat_client.list_devices()
     assert len(devices) == 3
 
@@ -36,15 +41,22 @@ def test_get_device():
         {'id': 3, 'name': 'device_C', 'heartbeat_id': 2},
     ]
     mock_client = mock.MagicMock(name='Mock Swagger Client')
-    with mock.patch.object(hbc.SwaggerClient, 'from_url', return_value=mock_client):
-        heartbeat_client = hbc.HeartbeatClient(service_url='http://fakeurl', token='some-token')
-        mock_client.devices.devices_list().response.return_value = BravadoResponseMock(result=devices)
+    with mock.patch.object(
+            hbc.SwaggerClient, 'from_url', return_value=mock_client
+    ):
+        heartbeat_client = hbc.HeartbeatClient(
+            service_url='http://fakeurl', token='some-token'
+        )
+        mock_client.devices.devices_list().response.return_value = \
+            BravadoResponseMock(result=devices)
         device = heartbeat_client.get_device('device_C')
     assert device['name'] == 'device_C'
 
 
 def test_heartbeat_spec_is_returned() -> None:
-    """Test that a full hausnet_heartbeat spec is returned, given the device name."""
+    """ Test that a full hausnet_heartbeat spec is returned, given the device
+        name.
+    """
     devices = [
         {'id': 1, 'name': 'device_A', 'heartbeat_id': 1},
         {'id': 2, 'name': 'device_B', 'heartbeat_id': None},
@@ -55,11 +67,17 @@ def test_heartbeat_spec_is_returned() -> None:
         {'id': 2, 'period_seconds': 15},
     ]
     mock_client = mock.MagicMock(name='Mock Swagger Client')
-    with mock.patch.object(hbc.SwaggerClient, 'from_url', return_value=mock_client):
-        heartbeat_client = hbc.HeartbeatClient(service_url='http://fakeurl', token='some-token')
-        mock_client.devices.devices_list().response.return_value = BravadoResponseMock(result=devices)
-        mock_client.heartbeats.heartbeats_read().response.side_effect=[
-            BravadoResponseMock(result=heartbeat_specs[0]), BravadoResponseMock(result=heartbeat_specs[1]),
+    with mock.patch.object(
+            hbc.SwaggerClient, 'from_url', return_value=mock_client
+    ):
+        heartbeat_client = hbc.HeartbeatClient(
+            service_url='http://fakeurl', token='some-token'
+        )
+        mock_client.devices.devices_list().response.return_value = \
+            BravadoResponseMock(result=devices)
+        mock_client.heartbeats.heartbeats_read().response.side_effect = [
+            BravadoResponseMock(result=heartbeat_specs[0]),
+            BravadoResponseMock(result=heartbeat_specs[1]),
         ]
         heartbeat_A = heartbeat_client.get_heartbeat('device_A')
         heartbeat_B = heartbeat_client.get_heartbeat('device_B')

@@ -1,7 +1,9 @@
 """Tests for hausnet_heartbeat config flow."""
-from unittest.mock import patch
 
 import pytest
+from unittest.mock import patch
+
+from conftest import TEST_MODULE
 
 from homeassistant.data_entry_flow import RESULT_TYPE_FORM, \
     RESULT_TYPE_CREATE_ENTRY
@@ -13,7 +15,7 @@ from custom_components.hausnet_heartbeat import DOMAIN
 
 
 async def test_flow_empty_name(hass):
-    """Test config flow errors on invalid station."""
+    """ Test case where config parameters left empty. """
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -30,22 +32,18 @@ async def test_flow_empty_name(hass):
         )
 
 
-async def test_flow_works(hass):
-    """Test config flow works."""
+async def test_flow_works(hass, verified_connection):
+    """ Test config flow works with provided credentials. """
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert result['type'] == RESULT_TYPE_FORM
-    assert result['errors'] is None
+    assert not result['errors']
 
-    with patch(
-        "custom_components.hausnet_heartbeat.async_setup_entry",
-        return_value=True
-    ):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            user_input={CONF_DEVICE: "my_device", CONF_API_KEY: "ABC123", }
-        )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={CONF_DEVICE: "my_device", CONF_API_KEY: "ABC123", }
+    )
 
     assert result["type"] == RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == "Heartbeat Configuration"
