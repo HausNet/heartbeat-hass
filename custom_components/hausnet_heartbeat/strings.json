@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HausNet Apps Connect",
+        "description": "Set up the connection to HausNet apps.",
+        "data": {
+          "api_key": "API Key",
+          "device": "Device"
+        }
+      },
+      "reauth_confirm": {
+        "title": "[%key:common::config_flow::title::reauth%]",
+        "description":"The HausNet Heartbeat integration needs to re-authenticate your account."
+      }
+    },
+    "error": {
+      "cannot_connect": "Network connection to HausNet service could not be established.",
+      "invalid_auth": "HausNet service authentication failed.",
+      "invalid_device": "The device does not exist at the HausNet service."
+    },
+    "abort": {
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+    }
+  }
+}
