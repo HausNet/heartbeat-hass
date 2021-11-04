@@ -48,6 +48,7 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
             self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
         """ User-driven discovery. """
+
         errors = {}
         api_key_field = None
         device_field = None
@@ -55,7 +56,6 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
             success, errors = await self._validate_input(user_input)
             if success:
                 await self.async_set_unique_id(user_input[CONF_API_KEY])
-                self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title='Heartbeat Configuration',
                     data=user_input

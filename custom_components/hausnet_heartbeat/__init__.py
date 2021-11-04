@@ -174,16 +174,20 @@ class HeartbeatService:
     # noinspection PyBroadException
     async def _send_heartbeat_with_retry(self):
         """ Try sending the hausnet_heartbeat, and if that fails, re-initialize
-            the client and retry (once).
+            the client and retry (HEARBEAT_RETRY_TIMES times).
         """
         for retry_count in range(0, HEARTBEAT_RETRY_TIMES):
             try:
                 if not self._api_client:
                     await self.init_api_client()
                     if not self._api_client:
-                        continue
-                if not await self._send_heartbeat():
-                    break
+                        LOGGER.warning(
+                            "Heartbeat client initialization failed. "
+                            "Retrying..."
+                        )
+                    continue
+                if await self._send_heartbeat():
+                    return
             except Exception:
                 LOGGER.exception(
                     f"Heartbeat send failed, try {retry_count + 1} of "
@@ -198,13 +202,15 @@ class HeartbeatService:
             at the service, True if the heartbeat was found and sent.
         """
         heartbeat = await self._hass.async_add_executor_job(
-            self._api_client.get_heartbeat, [self._device_name]
+            self._api_client.get_heartbeat, self._device_name
         )
         if not heartbeat:
             LOGGER.error(f"No heartbeat found for device: {self._device_name}")
             return False
-        self._api_client.send_heartbeat(heartbeat['id'])
-        LOGGER.debug(
+        await self._hass.async_add_executor_job(
+            self._api_client.send_heartbeat, heartbeat['id']
+        )
+        LOGGER.info(
             "Sent a hausnet_heartbeat for: device=%s; heartbeat_id=%d",
             self._device_name,
             heartbeat['id']

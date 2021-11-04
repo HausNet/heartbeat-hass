@@ -40,6 +40,11 @@ when it goes missing. You can monitor the log for any connection or authenticati
 
 # Releases
 
+## r0.2.1
+- Fixed HACS integration defects
+- Fixed heartbeat recognition defects
+- Updated info.md to be a copy of README.md
+
 ## r0.2
 - Integrated the (thin) client into the component.
 - Moved configuration to the UI from YAML.
