@@ -28,13 +28,21 @@ Then, set up the component:
 8. Find the "HausNet Heartbeat" repository, click on it, and in the new window that opens up, click "Install this repository in HACS".
 9. Confirm the installation in the subsequent window by clicking "Install" - you'll see the component in the main Home Assistant window with a "Pending Restart" notice on it.
 10. Restart Home Assistant.
-11. A configuration dialog will appear - enter the Heartbeat API token, and the device name defined at the service, and submit.
-12. Restart Home Assistant, if needed.
 
-After the restart, your Home Assistant will start sending a heartbeat once every 15 minutes, and will let you know 
-when it goes missing. You can monitor the log for any connection or authentic errors.
+Now that the integration has been made available in HACS, we need to install it in Home Assistant:
+
+1. Go to "Configuration" on the side menu, and click the "Add Integration" button at bottom right.
+2. In the pop-up window, search for the "HausNet Heartbeat" integration, and click on it when found.
+3. A configuration pop-up will appear - enter the Heartbeat API token, and the device name you defined at the service, and submit.
+
+Your Home Assistant will now start sending a heartbeat once every 15 minutes, and the service will let you know 
+when it goes missing. You can monitor the log for any connection or authentication errors.
 
 # Releases
+
+## r0.2
+- Integrated the (thin) client into the component.
+- Moved configuration to the UI from YAML.
 
 ## r0.1
 Changed the hausmon service to "heartbeat", and added the latest heartbeat client as a dependency.
