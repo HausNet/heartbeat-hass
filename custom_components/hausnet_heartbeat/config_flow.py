@@ -1,4 +1,5 @@
 """ Configuration flows. """
+
 from typing import Any, Optional, Tuple, Dict
 
 import voluptuous as vol
@@ -12,37 +13,11 @@ from . import DOMAIN, HEARTBEAT_URL, HeartbeatService
 
 HEARTBEAT_CONFIG_ID = "heartbeat_config"
 
-HEARTBEAT_SCHEMA = vol.Schema({
-    vol.Required(CONF_API_KEY): cv.string,
-    vol.Required(CONF_DEVICE): cv.string,
-})
-
 
 class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
     """ Configure the Heartbeat service. """
 
     VERSION = 1
-
-    async def _validate_input(self, user_input: Dict[str, Any]) -> \
-            Tuple[bool, Dict[str, str]]:
-        """ Validate form input. """
-        errors = {}
-
-        success, error_code = await HeartbeatService.verify_connection(
-            self.hass,
-            HEARTBEAT_URL,
-            user_input[CONF_API_KEY],
-            user_input[CONF_DEVICE]
-        )
-        if error_code == HeartbeatService.CONNECT_FAILED:
-            errors['base'] = 'cannot_connect'
-        elif error_code == HeartbeatService.AUTH_FAILED:
-            errors[CONF_API_KEY] = 'invalid_auth'
-        elif error_code == HeartbeatService.DEVICE_NOT_FOUND:
-            errors[CONF_DEVICE] = 'invalid_device'
-        elif not success:
-            errors['base'] = 'cannot_connect'
-        return success, errors
 
     async def async_step_user(
             self, user_input: Optional[Dict[str, Any]] = None
@@ -68,7 +43,7 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_API_KEY, default=api_key_field): cv.string,
                 vol.Required(CONF_DEVICE, default=device_field): cv.string,
             }),
-            errors=errors,
+            errors=errors
         )
 
     async def async_step_reauth(self, user_input=None):
@@ -83,3 +58,24 @@ class HeartbeatConfigFlow(ConfigFlow, domain=DOMAIN):
                 data_schema=vol.Schema({}),
             )
         return await self.async_step_user(user_input)
+
+    async def _validate_input(self, user_input: Dict[str, Any]) -> \
+            Tuple[bool, Dict[str, str]]:
+        """ Validate form input. """
+        errors = {}
+
+        success, error_code = await HeartbeatService.verify_connection(
+            self.hass,
+            HEARTBEAT_URL,
+            user_input[CONF_API_KEY],
+            user_input[CONF_DEVICE]
+        )
+        if error_code == HeartbeatService.CONNECT_FAILED:
+            errors['base'] = 'cannot_connect'
+        elif error_code == HeartbeatService.AUTH_FAILED:
+            errors[CONF_API_KEY] = 'invalid_auth'
+        elif error_code == HeartbeatService.DEVICE_NOT_FOUND:
+            errors[CONF_DEVICE] = 'invalid_device'
+        elif not success:
+            errors['base'] = 'cannot_connect'
+        return success, errors

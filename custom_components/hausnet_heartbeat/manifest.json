@@ -1,9 +1,10 @@
 {
   "domain": "hausnet_heartbeat",
   "name": "HausNet Heartbeat",
+  "integration_type": "service",
   "config_flow": true,
   "documentation": "https://hausnet.io/docs",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "issue_tracker": "https://github.com/HausNet/heartbeat-hass/issues",
   "requirements": [
       "bravado==11.0.3",

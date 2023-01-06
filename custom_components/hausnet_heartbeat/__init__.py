@@ -60,7 +60,7 @@ class DeviceNotFoundError(Exception):
 
 async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
     """Set up the Heartbeat component."""
-    LOGGER.debug("Setting up Heartbeat component...")
+    LOGGER.debug("Setting up Heartbeat component")
     hass.data.setdefault(DOMAIN, {})
     token = config.data[CONF_API_KEY]
     device = config.data[CONF_DEVICE]
@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
         HeartbeatService.DEVICE_NOT_FOUND:
             f"Device {device} not found at service",
         HeartbeatService.AUTH_FAILED:
-            f"Authentication token invalid",
+            "Authentication token invalid",
         HeartbeatService.UNKNOWN_FAILURE:
             "Unknown connection or authentication failure ",
     }
@@ -78,10 +78,10 @@ async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry) -> bool:
         success, error = await HeartbeatService.verify_connection(
             hass, HEARTBEAT_URL, token, device
         )
-        if not success :
+        if not success:
             raise ConfigEntryAuthFailed(failures[error])
-    except Exception as e:
-        raise ConfigEntryAuthFailed(e) from e
+    except Exception as exception:
+        raise ConfigEntryAuthFailed(exception) from exception
     service = HeartbeatService(
         hass, config.data[CONF_API_KEY], config.data[CONF_DEVICE]
     )
@@ -103,7 +103,7 @@ class HeartbeatService:
     DEVICE_NOT_FOUND = 2
     UNKNOWN_FAILURE = 3
 
-    def __init__(self, hass: HomeAssistant, api_key: str, device: str):
+    def __init__(self, hass: HomeAssistant, api_key: str, device: str) -> None:
         """Set up the service"""
         self._hass: HomeAssistant = hass
         self._api_url: str = HEARTBEAT_URL
@@ -118,7 +118,7 @@ class HeartbeatService:
         """ Called by timer (or at object construction time, once) to beat the
         heart at the service. Sets up the call for the next beat at the end.
         """
-        LOGGER.debug("Heartbeat timer triggered.")
+        LOGGER.debug("Heartbeat timer triggered")
         await self._send_heartbeat_with_retry()
         self._set_heartbeat_timer()
 
