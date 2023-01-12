@@ -38,23 +38,3 @@ Now that the integration has been made available in HACS, we need to install it 
 Your Home Assistant will now start sending a heartbeat once every 15 minutes, and the service will let you know 
 when it goes missing. You can monitor the log for any connection or authentication errors.
 
-# Releases
-
-## r0.2.1
-- Fixed HACS integration defects
-- Fixed heartbeat recognition defects
-- Updated info.md to be a copy of README.md
-
-## r0.2
-- Integrated the (thin) client into the component.
-- Moved configuration to the UI from YAML.
-
-## r0.1
-Changed the hausmon service to "heartbeat", and added the latest heartbeat client as a dependency.
-
-## r0.1.1
-Changed the url of the service to "https://app.hausnet.io"
-
-## r0.2
-Integrated the client into the component.
-Changed from YAML configuration to config entries on the UI>
