@@ -1,7 +1,0 @@
-##
-# HACS (Home Assistant Community Store) configuration. See https://hacs.xyz/docs/publish/start for documentation and
-# additional values.
-#
-
-name: "HausNet Heartbeat monitoring client for Home Assistant"
-iot_class: "Local Push"

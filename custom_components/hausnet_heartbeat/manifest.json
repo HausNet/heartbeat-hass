@@ -4,7 +4,7 @@
   "integration_type": "service",
   "config_flow": true,
   "documentation": "https://hausnet.io/docs",
-  "version": "0.0.7",
+  "version": "0.3",
   "issue_tracker": "https://github.com/HausNet/heartbeat-hass/issues",
   "requirements": [
       "bravado==11.0.3",
