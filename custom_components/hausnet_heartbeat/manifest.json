@@ -2,9 +2,10 @@
   "domain": "hausnet_heartbeat",
   "name": "HausNet Heartbeat",
   "integration_type": "service",
+  "iot_class": "cloud_polling",
   "config_flow": true,
   "documentation": "https://hausnet.io/docs",
-  "version": "0.3",
+  "version": "v0.3",
   "issue_tracker": "https://github.com/HausNet/heartbeat-hass/issues",
   "requirements": [
       "bravado==11.0.3",
