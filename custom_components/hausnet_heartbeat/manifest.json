@@ -1,19 +1,19 @@
 {
   "domain": "hausnet_heartbeat",
   "name": "HausNet Heartbeat",
+  "codeowners": [
+    "@HausNet",
+    "@liber_tas"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://hausnet.io/docs",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "config_flow": true,
-  "documentation": "https://hausnet.io/docs",
-  "version": "v0.3",
   "issue_tracker": "https://github.com/HausNet/heartbeat-hass/issues",
   "requirements": [
       "bravado==11.0.3",
       "jsonschema<4.0.0"
   ],
-  "dependencies": [],
-  "codeowners": [
-    "@HausNet",
-    "@liber_tas"
-  ]
+  "version": "v0.3"
 }

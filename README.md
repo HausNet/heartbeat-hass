@@ -13,7 +13,7 @@ distribution. Instead, it is installed and managed with the [Home Assistant Comm
 First, at the [HausNet App site](https://app.hausnet.io):
 
 1. Create an account.
-2. Create a device (from the "Devices" menu) to represent your Home Assistant instance.
+2. Create a device to represent your Home Assistant instance.
 3. Copy your API access token from your profile.
 
 Then, set up the component:
@@ -31,7 +31,8 @@ Then, set up the component:
 
 Now that the integration has been made available in HACS, we need to install it in Home Assistant:
 
-1. Go to "Configuration" on the side menu, and click the "Add Integration" button at bottom right.
+1. Go to "Settings" on the left side menu, click on "Devices and Services", and then click the "Add Integration"
+   button at bottom right.
 2. In the pop-up window, search for the "HausNet Heartbeat" integration, and click on it when found.
 3. A configuration pop-up will appear - enter the Heartbeat API token, and the device name you defined at the service, and submit.
 
