@@ -106,5 +106,5 @@ class HeartbeatClient:
         """ Send a hausnet_heartbeat for a specific hausnet_heartbeat definition
             (or device).
         """
-        self.swagger_client.heartbeats.heartbeats_beat(id=heartbeat_id).\
+        self.swagger_client.heartbeats.heartbeats_beat_read(id=heartbeat_id).\
             response()
